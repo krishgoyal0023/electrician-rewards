@@ -15,23 +15,23 @@ export default function Home() {
     if (!phone || !name) return;
     setLoading(true);
 
-    // Look up user by phone_number
-    const { data, error } = await supabase
+    // Search by either column
+    const { data } = await supabase
       .from('electricians')
       .select('*')
-      .eq('phone_number', phone)
+      .or(`phone.eq.${phone},phone_number.eq.${phone}`)
       .maybeSingle();
 
     let user = data;
 
     if (!user) {
-      // Create user using phone_number column
+      // Pass both keys so no NOT NULL constraint is violated
       const { data: newUser, error: createError } = await supabase
         .from('electricians')
-        .insert([{ phone_number: phone, name, points: 0 }])
+        .insert([{ phone: phone, phone_number: phone, name: name, points: 0 }])
         .select()
         .single();
-      
+
       if (createError) {
         alert('Error creating account: ' + createError.message);
         setLoading(false);
@@ -43,7 +43,6 @@ export default function Home() {
     localStorage.setItem('electrician', JSON.stringify(user));
     router.push('/dashboard');
   };
-
 
   return (
     <main className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
