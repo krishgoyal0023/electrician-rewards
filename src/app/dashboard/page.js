@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { QrCode, LogOut, Award } from 'lucide-react';
+import { QrCode, LogOut, Award, Gift } from 'lucide-react';
 
 export default function Dashboard() {
   const [electrician, setElectrician] = useState(null);
@@ -58,13 +58,23 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <button
-          onClick={() => router.push('/scan')}
-          className="w-full bg-slate-900 border border-amber-400/30 hover:border-amber-400 text-amber-400 font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition"
-        >
-          <QrCode className="h-5 w-5" />
-          Open Camera Scanner
-        </button>
+        <div className="space-y-3">
+          <button
+            onClick={() => router.push('/scan')}
+            className="w-full bg-slate-900 border border-amber-400/30 hover:border-amber-400 text-amber-400 font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition"
+          >
+            <QrCode className="h-5 w-5" />
+            Open Camera Scanner
+          </button>
+
+          <button
+            onClick={() => router.push('/rewards')}
+            className="w-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition"
+          >
+            <Gift className="h-5 w-5" />
+            Claim Rewards & Cash Payouts
+          </button>
+        </div>
       </div>
     </main>
   );
