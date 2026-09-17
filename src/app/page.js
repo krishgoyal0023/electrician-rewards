@@ -19,7 +19,7 @@ export default function Home() {
       .from('electricians')
       .select('*')
       .eq('phone', phone)
-      .single();
+      .maybeSingle();
 
     let user = data;
 
@@ -31,7 +31,7 @@ export default function Home() {
         .single();
       
       if (createError) {
-        alert('Error logging in');
+        alert('Error creating account: ' + createError.message);
         setLoading(false);
         return;
       }
@@ -41,6 +41,7 @@ export default function Home() {
     localStorage.setItem('electrician', JSON.stringify(user));
     router.push('/dashboard');
   };
+
 
   return (
     <main className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
