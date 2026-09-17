@@ -15,18 +15,20 @@ export default function Home() {
     if (!phone || !name) return;
     setLoading(true);
 
+    // Look up user by phone_number
     const { data, error } = await supabase
       .from('electricians')
       .select('*')
-      .eq('phone', phone)
+      .eq('phone_number', phone)
       .maybeSingle();
 
     let user = data;
 
     if (!user) {
+      // Create user using phone_number column
       const { data: newUser, error: createError } = await supabase
         .from('electricians')
-        .insert([{ phone, name, points: 0 }])
+        .insert([{ phone_number: phone, name, points: 0 }])
         .select()
         .single();
       
