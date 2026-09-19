@@ -24,79 +24,37 @@ export default function ElectricianScanPage() {
   const handleRedeemCode = async (scannedCode) => {
     const cleanCode = scannedCode.trim();
     if (!electrician || loading || !cleanCode) return;
-    
+
     setLoading(true);
     setScanMessage(null);
 
-    // 1. Fetch coupon details
-    const { data: coupon, error: fetchError } = await supabase
-      .from('qr_coupons')
-      .select('*')
-      .eq('secret_code', cleanCode)
-      .single();
+    // Call the Supabase Postgres RPC Transaction Function
+    const { data, error } = await supabase.rpc('redeem_coupon_dual_credit', {
+      p_secret_code: cleanCode,
+      p_electrician_id: electrician.id
+    });
 
-    if (fetchError || !coupon) {
-      setScanMessage({ type: 'error', text: `Invalid QR Code: ${cleanCode}` });
+    if (error) {
+      setScanMessage({ type: 'error', text: 'Redemption failed: ' + error.message });
       setLoading(false);
       return;
     }
 
-    if (coupon.is_redeemed) {
-      setScanMessage({ type: 'error', text: 'This QR code has already been redeemed!' });
+    if (!data.success) {
+      setScanMessage({ type: 'error', text: data.message });
       setLoading(false);
       return;
     }
 
-    // 2. Mark coupon as redeemed
-    const { error: redeemError } = await supabase
-      .from('qr_coupons')
-      .update({
-        is_redeemed: true,
-        status: 'redeemed',
-        electrician_id: electrician.id,
-        redeemed_at: new Date().toISOString()
-      })
-      .eq('id', coupon.id);
-
-    if (redeemError) {
-      setScanMessage({ type: 'error', text: 'Redemption failed: ' + redeemError.message });
-      setLoading(false);
-      return;
-    }
-
-    // 3. Credit Electrician Points
-    const updatedElectricianPoints = (electrician.total_points || 0) + coupon.points;
-    await supabase
-      .from('electricians')
-      .update({ total_points: updatedElectricianPoints })
-      .eq('id', electrician.id);
-
-    // Update local session storage
-    const updatedElectrician = { ...electrician, total_points: updatedElectricianPoints };
+    // Refresh electrician wallet locally
+    const updatedPoints = (electrician.total_points || 0) + data.points;
+    const updatedElectrician = { ...electrician, total_points: updatedPoints };
     localStorage.setItem('electrician', JSON.stringify(updatedElectrician));
     setElectrician(updatedElectrician);
 
-    // 4. Dual Credit: Credit Assigned Dealer Commission (20% share)
-    if (coupon.dealer_id) {
-      const dealerCommission = Math.round(coupon.points * 0.2);
-      
-      const { data: dealerData } = await supabase
-        .from('dealers')
-        .select('total_points')
-        .eq('id', coupon.dealer_id)
-        .single();
-
-      if (dealerData) {
-        await supabase
-          .from('dealers')
-          .update({ total_points: (dealerData.total_points || 0) + dealerCommission })
-          .eq('id', coupon.dealer_id);
-      }
-    }
-
     setScanMessage({
       type: 'success',
-      text: `Successfully redeemed! +${coupon.points} points credited to your wallet.`
+      text: `Successfully redeemed! +${data.points} points credited to your wallet.`
     });
     setManualCode('');
     setLoading(false);
@@ -130,12 +88,10 @@ export default function ElectricianScanPage() {
             <Zap className="h-4 w-4 text-amber-400" /> Redeem Wire Coupon
           </h1>
 
-          {/* Camera Scanner */}
           <div className="rounded-xl overflow-hidden border border-slate-700">
             <Scanner onScanSuccess={handleRedeemCode} />
           </div>
 
-          {/* Manual Code Input Fallback */}
           <form onSubmit={handleManualSubmit} className="pt-2 border-t border-slate-800 space-y-2">
             <label className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
               <Keyboard className="h-3.5 w-3.5 text-amber-400" /> Manual Code Input
