@@ -3,10 +3,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Scanner from '../Scanner';
-import { Zap, CheckCircle2, AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
+import { Zap, CheckCircle2, AlertCircle, Loader2, ArrowLeft, Keyboard } from 'lucide-react';
 
 export default function ElectricianScanPage() {
   const [electrician, setElectrician] = useState(null);
+  const [manualCode, setManualCode] = useState('');
   const [scanMessage, setScanMessage] = useState(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -21,11 +22,11 @@ export default function ElectricianScanPage() {
   }, [router]);
 
   const handleRedeemCode = async (scannedCode) => {
-    if (!electrician || loading) return;
+    const cleanCode = scannedCode.trim();
+    if (!electrician || loading || !cleanCode) return;
+    
     setLoading(true);
     setScanMessage(null);
-
-    const cleanCode = scannedCode.trim();
 
     // 1. Fetch coupon details
     const { data: coupon, error: fetchError } = await supabase
@@ -75,9 +76,9 @@ export default function ElectricianScanPage() {
     localStorage.setItem('electrician', JSON.stringify(updatedElectrician));
     setElectrician(updatedElectrician);
 
-    // 4. Dual Credit: Credit Assigned Dealer (e.g. 10% or equal points commission)
+    // 4. Dual Credit: Credit Assigned Dealer Commission (20% share)
     if (coupon.dealer_id) {
-      const dealerCommission = Math.round(coupon.points * 0.2); // e.g. 20% dealer commission (or same amount)
+      const dealerCommission = Math.round(coupon.points * 0.2);
       
       const { data: dealerData } = await supabase
         .from('dealers')
@@ -97,7 +98,13 @@ export default function ElectricianScanPage() {
       type: 'success',
       text: `Successfully redeemed! +${coupon.points} points credited to your wallet.`
     });
+    setManualCode('');
     setLoading(false);
+  };
+
+  const handleManualSubmit = (e) => {
+    e.preventDefault();
+    handleRedeemCode(manualCode);
   };
 
   return (
@@ -120,18 +127,36 @@ export default function ElectricianScanPage() {
 
         <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
           <h1 className="text-sm font-bold text-slate-200 flex items-center gap-2">
-            <Zap className="h-4 w-4 text-amber-400" /> Scan Wire Coupon
+            <Zap className="h-4 w-4 text-amber-400" /> Redeem Wire Coupon
           </h1>
 
+          {/* Camera Scanner */}
           <div className="rounded-xl overflow-hidden border border-slate-700">
             <Scanner onScanSuccess={handleRedeemCode} />
           </div>
 
-          {loading && (
-            <div className="flex items-center justify-center gap-2 text-xs text-amber-400 py-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Processing redemption...
+          {/* Manual Code Input Fallback */}
+          <form onSubmit={handleManualSubmit} className="pt-2 border-t border-slate-800 space-y-2">
+            <label className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
+              <Keyboard className="h-3.5 w-3.5 text-amber-400" /> Manual Code Input
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Enter coupon code (e.g. TEST-50-XXXXX)"
+                value={manualCode}
+                onChange={(e) => setManualCode(e.target.value)}
+                className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-amber-400"
+              />
+              <button
+                type="submit"
+                disabled={loading || !manualCode}
+                className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs transition disabled:opacity-50"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Claim'}
+              </button>
             </div>
-          )}
+          </form>
 
           {scanMessage && (
             <div
