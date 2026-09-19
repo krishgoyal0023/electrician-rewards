@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import Scanner from '@/Scanner';
+import Scanner from '../../../Scanner';
 import { Store, ArrowLeft, CheckCircle2, AlertCircle, PackageCheck, Loader2 } from 'lucide-react';
 
 export default function StaffDispatchScanPage() {
