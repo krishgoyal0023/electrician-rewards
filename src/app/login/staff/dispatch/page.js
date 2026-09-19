@@ -3,15 +3,17 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Scanner from '../../../Scanner';
-import { Store, ArrowLeft, CheckCircle2, AlertCircle, PackageCheck, Loader2 } from 'lucide-react';
+import { Store, ArrowLeft, CheckCircle2, AlertCircle, PackageCheck, Loader2, Keyboard } from 'lucide-react';
 
 export default function StaffDispatchScanPage() {
   const [dealers, setDealers] = useState([]);
   const [selectedDealer, setSelectedDealer] = useState('');
+  const [manualCode, setManualCode] = useState('');
   const [lastScanned, setLastScanned] = useState(null);
   const [scanMessage, setScanMessage] = useState(null);
   const [dispatchCount, setDispatchCount] = useState(0);
   const [loadingDealers, setLoadingDealers] = useState(true);
+  const [processing, setProcessing] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -26,29 +28,32 @@ export default function StaffDispatchScanPage() {
     setLoadingDealers(false);
   };
 
-  const handleDispatchScan = async (scannedCode) => {
+  const handleDispatchCode = async (codeToDispatch) => {
+    const cleanCode = codeToDispatch.trim();
     if (!selectedDealer) {
       setScanMessage({ type: 'error', text: 'Please select a destination dealer first!' });
       return;
     }
 
-    if (lastScanned === scannedCode) return; // Prevent duplicate immediate trigger
-    setLastScanned(scannedCode);
+    if (!cleanCode) return;
+    setProcessing(true);
 
     // 1. Verify coupon status
     const { data: coupon, error: fetchError } = await supabase
       .from('qr_coupons')
       .select('*')
-      .eq('secret_code', scannedCode.trim())
+      .eq('secret_code', cleanCode)
       .single();
 
     if (fetchError || !coupon) {
-      setScanMessage({ type: 'error', text: `Invalid QR Code: ${scannedCode}` });
+      setScanMessage({ type: 'error', text: `Invalid QR Code: ${cleanCode}` });
+      setProcessing(false);
       return;
     }
 
     if (coupon.is_redeemed || coupon.status === 'redeemed') {
-      setScanMessage({ type: 'error', text: `Cannot dispatch: Code ${scannedCode} is already redeemed!` });
+      setScanMessage({ type: 'error', text: `Cannot dispatch: Code ${cleanCode} is already redeemed!` });
+      setProcessing(false);
       return;
     }
 
@@ -68,9 +73,16 @@ export default function StaffDispatchScanPage() {
       const targetDealer = dealers.find((d) => d.id === selectedDealer);
       setScanMessage({
         type: 'success',
-        text: `Dispatched ${scannedCode} (+${coupon.points} pts) to ${targetDealer?.name || 'Dealer'}`
+        text: `Dispatched ${cleanCode} (+${coupon.points} pts) to ${targetDealer?.name || 'Dealer'}`
       });
+      setManualCode('');
     }
+    setProcessing(false);
+  };
+
+  const handleManualSubmit = (e) => {
+    e.preventDefault();
+    handleDispatchCode(manualCode);
   };
 
   return (
@@ -120,19 +132,45 @@ export default function StaffDispatchScanPage() {
           )}
         </div>
 
-        {/* Dispatch Camera Scanner */}
+        {/* Dispatch Camera & Manual Input Container */}
         <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
           <h2 className="text-xs font-bold text-slate-300 flex items-center gap-2">
-            <PackageCheck className="h-4 w-4 text-emerald-400" /> 2. Scan QR Code Box
+            <PackageCheck className="h-4 w-4 text-emerald-400" /> 2. Scan or Enter QR Coupon Code
           </h2>
 
           {!selectedDealer ? (
             <div className="p-8 text-center bg-slate-800/40 rounded-xl border border-dashed border-slate-700 text-xs text-slate-400">
-              Please select a dealer from the dropdown above to activate the dispatch camera.
+              Please select a dealer from the dropdown above to activate dispatch.
             </div>
           ) : (
-            <div className="rounded-xl overflow-hidden border border-slate-700">
-              <Scanner onScanSuccess={handleDispatchScan} />
+            <div className="space-y-4">
+              {/* Camera Scanner */}
+              <div className="rounded-xl overflow-hidden border border-slate-700">
+                <Scanner onScanSuccess={(code) => handleDispatchCode(code)} />
+              </div>
+
+              {/* Manual Entry Fallback */}
+              <form onSubmit={handleManualSubmit} className="pt-2 border-t border-slate-800 space-y-2">
+                <label className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
+                  <Keyboard className="h-3.5 w-3.5 text-amber-400" /> Manual Code Input (Testing / Keyboard Scanner)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Enter code (e.g. TEST-50-ABC12)"
+                    value={manualCode}
+                    onChange={(e) => setManualCode(e.target.value)}
+                    className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-amber-400"
+                  />
+                  <button
+                    type="submit"
+                    disabled={processing || !manualCode}
+                    className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs transition disabled:opacity-50"
+                  >
+                    {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Dispatch'}
+                  </button>
+                </div>
+              </form>
             </div>
           )}
 
