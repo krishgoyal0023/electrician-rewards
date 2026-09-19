@@ -19,17 +19,22 @@ export default function ElectricianLoginPage() {
 
     setLoading(true);
 
-    // Look up or register electrician in Supabase
+    // 1. Check if electrician already exists
     let { data: electrician, error } = await supabase
       .from('electricians')
       .select('*')
       .eq('phone_number', phone)
       .single();
 
+    // 2. Register new electrician using 'name' column instead of 'full_name'
     if (error && error.code === 'PGRST116') {
       const { data: newElectrician, error: createError } = await supabase
         .from('electricians')
-        .insert([{ phone_number: phone, full_name: name || `Electrician (${phone.slice(-4)})`, total_points: 0 }])
+        .insert([{ 
+          phone_number: phone, 
+          name: name || `Electrician (${phone.slice(-4)})`, 
+          total_points: 0 
+        }])
         .select()
         .single();
 
@@ -41,7 +46,7 @@ export default function ElectricianLoginPage() {
       electrician = newElectrician;
     }
 
-    // Save session locally and navigate to main user dashboard
+    // 3. Save session locally and redirect to points dashboard
     localStorage.setItem('electrician', JSON.stringify(electrician));
     setLoading(false);
     router.push('/dashboard');
